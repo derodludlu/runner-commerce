@@ -1,0 +1,2 @@
+ALTER TABLE "Runner"
+ADD COLUMN IF NOT EXISTS "repostFeePercentageEnabled" BOOLEAN NOT NULL DEFAULT true;

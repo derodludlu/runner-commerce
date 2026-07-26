@@ -1,0 +1,45 @@
+# Runner Commerce hybrid local hosting
+#
+# Docker is intentionally used for infrastructure only. The Next.js frontend,
+# NestJS API, and WhatsApp bridge workers run on Windows so WhatsApp Web can use
+# the logged-in desktop session and stable local browser/session storage.
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: runner-commerce-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: runnercommerce_db
+      POSTGRES_USER: runnercommerce
+      POSTGRES_PASSWORD: securepassword123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U runnercommerce -d runnercommerce_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
+  redis:
+    image: redis:alpine
+    container_name: runner-commerce-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 5s
+
+volumes:
+  postgres_data:
+  redis_data:

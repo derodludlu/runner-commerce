@@ -1,0 +1,28 @@
+{
+  "name": "Runner Commerce",
+  "short_name": "Runner Commerce",
+  "description": "Lightweight WhatsApp reposting dashboard for runners.",
+  "start_url": "/runner/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "orientation": "portrait-primary",
+  "shortcuts": [
+    {
+      "name": "Runner Listings",
+      "short_name": "Listings",
+      "url": "/runner/listings"
+    },
+    {
+      "name": "Marketplace",
+      "short_name": "Marketplace",
+      "url": "/runner/marketplace"
+    },
+    {
+      "name": "Support",
+      "short_name": "Support",
+      "url": "/support"
+    }
+  ]
+}

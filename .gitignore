@@ -1,0 +1,66 @@
+.pm2/
+backups/
+
+# Local runtime logs
+*.log
+
+# Dependencies and package manager caches
+node_modules/
+**/node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Build output and caches
+dist/
+build/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Local runtime data
+logs/
+pids/
+*.pid
+*.pid.lock
+uploads/
+backend/uploads/
+whatsapp-inbox/
+.wwebjs_auth/
+.wwebjs_auth_*/
+.wwebjs_cache/
+backend/.wwebjs_auth/
+backend/.wwebjs_auth_*/
+backend/.wwebjs_cache/
+
+# Local hosting/tool state
+.vercel/
+.cloudflared/
+
+# Generated artifacts and scratch output
+outputs/
+
+# Local assistant/tool state
+.claude/
+.qwen/
+.agents/
+.codex/
+
+# PM2 backups/runtime copies
+.pm2*/
+
+# Local screenshots
+localhost-*.png
+[{]chat.name
+backend/whatsapp-outbox/
+backend/whatsapp-capture-outbox/
+mobile/.expo/
+$[{]chat.name

@@ -1,0 +1,15 @@
+{
+  "shopId": "replace-with-shop-id",
+  "posts": [
+    {
+      "caption": "Fresh Spinach Bundle - R12.50 - Stock: 40 - Category: Produce",
+      "sourceGroup": "Shop Daily Specials",
+      "senderPhone": "+27000000001",
+      "messageId": "example-message-001",
+      "mediaUrls": [
+        "https://dummyjson.com/image/400x300/dcfce7/166534?text=Spinach"
+      ],
+      "receivedAt": "2026-05-25T10:00:00.000Z"
+    }
+  ]
+}

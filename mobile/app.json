@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Runner Commerce",
+    "slug": "runner-commerce-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.runnercommerce.mobile",
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

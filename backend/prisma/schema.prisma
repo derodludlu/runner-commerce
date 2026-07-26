@@ -1,0 +1,1630 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  permissions Json?
+  users       User[]
+
+  @@index([name])
+}
+
+model User {
+  id                      String                     @id @default(uuid())
+  name                    String
+  phone                   String                     @unique
+  email                   String?                    @unique
+  passwordHash            String
+  passwordResetRequired   Boolean                    @default(false)
+  passwordChangedAt       DateTime?
+  roleId                  String
+  status                  String                     @default("ACTIVE")
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+  cart                    Cart?
+  billingInvoices         PlatformInvoice[]
+  manualPayments          ManualPaymentRecord[]
+  couponUsages            CouponUsage[]
+  notifications           Notification[]
+  notificationPref        NotificationPreference?
+  orders                  Order[]
+  returnRequests          ReturnRequest[]
+  reviews                 Review[]
+  whatsAppRequests        WhatsAppOrderRequest[]
+  runner                  Runner?
+  shops                   Shop[]
+  supportTickets          SupportTicket[]
+  subscriptions           Subscription[]
+  passwordResetChallenges PasswordResetChallenge[]
+  runnerPreferences       CustomerRunnerPreference[] @relation("CustomerRunnerPreferences")
+  approvedPhase1Runners   Runner[]                   @relation("RunnerPhase1ApprovedBy")
+  verifiedRepostingGroups RunnerRepostingGroup[]     @relation("RunnerRepostingGroupVerifiedBy")
+  reviewedShopLinks       RunnerSubmittedShopLink[]  @relation("RunnerSubmittedShopLinkReviewedBy")
+  role                    Role                       @relation(fields: [roleId], references: [id])
+  wishlist                Wishlist?
+
+  @@index([phone])
+  @@index([email])
+  @@index([status])
+}
+
+model PasswordResetChallenge {
+  id         String    @id @default(uuid())
+  userId     String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
+model Shop {
+  id                    String                      @id @default(uuid())
+  name                  String
+  description           String?
+  phone                 String
+  address               String?
+  ownerId               String
+  status                String                      @default("ACTIVE")
+  procurementCity       String                      @default("DURBAN")
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  batches               Batch[]
+  products              Product[]
+  billingInvoices       PlatformInvoice[]
+  runnerListings        RunnerListing[]
+  runnerAssignments     RunnerShopLink[]
+  whatsappImports       WhatsAppImport[]
+  captureCheckpoints    WhatsAppCaptureCheckpoint[]
+  whatsappGroupMappings WhatsAppGroupMapping[]
+  shopRepostLogs        ShopWhatsAppRepostLog[]
+  subscriptions         Subscription[]
+  owner                 User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+model Product {
+  id                  String                     @id @default(uuid())
+  shopId              String
+  name                String
+  description         String?
+  basePrice           Float
+  stockQty            Int                        @default(0)
+  images              Json?
+  category            String?
+  status              String                     @default("ACTIVE")
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  sourceRefreshedAt   DateTime?
+  cartItems           CartItem[]
+  reservations        InventoryReservation[]
+  orderItems          OrderItem[]
+  pickLists           PickList[]
+  shop                Shop                       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variants            ProductVariant[]
+  reviews             Review[]
+  listings            RunnerListing[]
+  listingSuppressions RunnerListingSuppression[]
+  wishlistItems       WishlistItem[]
+  whatsappImports     WhatsAppImport[]
+  imageFingerprints   ProductImageFingerprint[]
+
+  @@index([shopId])
+  @@index([category])
+  @@index([status])
+}
+
+model ProductImageFingerprint {
+  id             String   @id @default(uuid())
+  productId      String
+  imageUrl       String
+  imageIndex     Int      @default(0)
+  sha256         String?
+  perceptualHash String?
+  mimetype       String?
+  width          Int?
+  height         Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, imageUrl])
+  @@index([productId])
+  @@index([sha256])
+  @@index([perceptualHash])
+  @@index([updatedAt])
+}
+
+model ProductDuplicateReviewDismissal {
+  id             String   @id @default(uuid())
+  shopId         String
+  leftProductId  String
+  rightProductId String
+  reviewedById   String?
+  reason         String   @default("KEEP_SEPARATE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([shopId, leftProductId, rightProductId])
+  @@index([shopId])
+}
+
+model WhatsAppGroupMapping {
+  id                 String                  @id @default(uuid())
+  shopId             String
+  groupId            String                  @unique
+  sourceGroup        String
+  participants       Int?
+  status             String                  @default("ACTIVE")
+  groupRole          String                  @default("SOURCE")
+  isPrimarySource    Boolean                 @default(false)
+  captureEnabled     Boolean                 @default(true)
+  postingEnabled     Boolean                 @default(false)
+  captureLimitPerRun Int                     @default(100)
+  listingLimitPerRun Int                     @default(20)
+  lastCaptureAt      DateTime?
+  lastPostAt         DateTime?
+  archivedAt         DateTime?
+  inviteLink         String?
+  notes              String?
+  createdById        String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  shop               Shop                    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopRepostLogs     ShopWhatsAppRepostLog[]
+
+  @@index([shopId])
+  @@index([status])
+  @@index([groupRole])
+  @@index([isPrimarySource])
+  @@index([captureEnabled])
+  @@index([postingEnabled])
+  @@index([archivedAt])
+  @@index([sourceGroup])
+}
+
+model ShopWhatsAppRepostLog {
+  id                   String               @id @default(uuid())
+  shopId               String
+  sourceMappingId      String?
+  destinationMappingId String
+  sourceGroupId        String
+  sourceGroupName      String?
+  destinationGroupId   String
+  destinationGroupName String?
+  sourceMessageId      String
+  status               String               @default("POSTED")
+  error                String?
+  retryCount           Int                  @default(0)
+  postedAt             DateTime?
+  lastAttemptAt        DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  shop                 Shop                 @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  destinationMapping   WhatsAppGroupMapping @relation(fields: [destinationMappingId], references: [id], onDelete: Cascade)
+
+  @@unique([destinationMappingId, sourceMessageId])
+  @@index([shopId])
+  @@index([sourceGroupId])
+  @@index([destinationGroupId])
+  @@index([status])
+  @@index([postedAt])
+}
+
+model WhatsAppDiscoveredGroup {
+  id                          String                          @id @default(uuid())
+  groupId                     String                          @unique
+  name                        String
+  creatorId                   String?
+  creatorPhone                String?
+  participants                Int                             @default(0)
+  profileImageUrl             String?
+  importedShopId              String?
+  groupPurpose                String                          @default("UNCLASSIFIED")
+  importedRunnerAdvertisingAt DateTime?
+  archivedAt                  DateTime?
+  lastSeenAt                  DateTime                        @default(now())
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+  bridgePresence              WhatsAppBridgeGroupPresence[]
+  members                     WhatsAppDiscoveredGroupMember[]
+  runnerRepostingGroups       RunnerRepostingGroup[]
+
+  @@index([name])
+  @@index([creatorPhone])
+  @@index([importedShopId])
+  @@index([groupPurpose])
+  @@index([archivedAt])
+  @@index([lastSeenAt])
+}
+
+model WhatsAppDiscoveredGroupMember {
+  id                String                  @id @default(uuid())
+  discoveredGroupId String
+  groupId           String
+  phone             String
+  status            String                  @default("ACTIVE")
+  firstSeenAt       DateTime                @default(now())
+  lastSeenAt        DateTime                @default(now())
+  archivedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  discoveredGroup   WhatsAppDiscoveredGroup @relation(fields: [discoveredGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, phone])
+  @@index([discoveredGroupId])
+  @@index([phone])
+  @@index([status])
+  @@index([lastSeenAt])
+}
+
+model CustomerGroupConflict {
+  id             String    @id @default(uuid())
+  customerPhone  String
+  city           String
+  status         String    @default("OPEN")
+  runnerIds      Json
+  groups         Json
+  chosenRunnerId String?
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([customerPhone, city])
+  @@index([status])
+  @@index([city])
+  @@index([customerPhone])
+  @@index([chosenRunnerId])
+}
+
+model WhatsAppDiscoveredChannel {
+  id              String                 @id @default(uuid())
+  bridgeAccountId String?
+  channelId       String                 @unique
+  name            String
+  description     String?
+  isReadOnly      Boolean                @default(false)
+  unreadCount     Int                    @default(0)
+  subscriberCount Int?
+  inviteLink      String?
+  lastActivityAt  DateTime?
+  archivedAt      DateTime?
+  lastSeenAt      DateTime               @default(now())
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  bridgeAccount   WhatsAppBridgeAccount? @relation(fields: [bridgeAccountId], references: [id], onDelete: Cascade)
+
+  @@index([bridgeAccountId])
+  @@index([name])
+  @@index([archivedAt])
+  @@index([lastSeenAt])
+}
+
+model WhatsAppBridgeGroupPresence {
+  id                String                  @id @default(uuid())
+  bridgeAccountId   String
+  discoveredGroupId String
+  groupId           String
+  name              String
+  creatorId         String?
+  creatorPhone      String?
+  participants      Int                     @default(0)
+  profileImageUrl   String?
+  isAvailable       Boolean                 @default(true)
+  archivedAt        DateTime?
+  firstSeenAt       DateTime                @default(now())
+  lastSeenAt        DateTime                @default(now())
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  bridgeAccount     WhatsAppBridgeAccount   @relation(fields: [bridgeAccountId], references: [id], onDelete: Cascade)
+  discoveredGroup   WhatsAppDiscoveredGroup @relation(fields: [discoveredGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([bridgeAccountId, groupId])
+  @@index([bridgeAccountId])
+  @@index([discoveredGroupId])
+  @@index([groupId])
+  @@index([isAvailable])
+  @@index([archivedAt])
+  @@index([lastSeenAt])
+}
+
+model WhatsAppImport {
+  id                String    @id @default(uuid())
+  shopId            String
+  productId         String?
+  sourceGroup       String?
+  senderPhone       String?
+  messageId         String?
+  caption           String
+  mediaUrls         Json?
+  parsedDraft       Json?
+  status            String    @default("PENDING")
+  error             String?
+  receivedAt        DateTime  @default(now())
+  importedAt        DateTime?
+  resolutionOutcome String?
+  matchedImportId   String?
+  matchedProductId  String?
+  matchConfidence   Float?
+  matchAgeDays      Float?
+  matchReason       String?
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  shop              Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product           Product?  @relation(fields: [productId], references: [id])
+
+  @@unique([shopId, messageId])
+  @@index([shopId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([matchedProductId])
+  @@index([resolutionOutcome])
+}
+
+model WhatsAppCaptureCheckpoint {
+  id                         String    @id @default(uuid())
+  shopId                     String
+  groupId                    String
+  sourceGroup                String?
+  lastFullyCapturedMessageId String?
+  lastFullyCapturedAt        DateTime?
+  lastScanStartedAt          DateTime?
+  lastScanCompletedAt        DateTime?
+  lastScanStatus             String    @default("NEVER_RUN")
+  lastError                  String?
+  messagesScanned            Int       @default(0)
+  productsCaptured           Int       @default(0)
+  productsSkipped            Int       @default(0)
+  productsFailed             Int       @default(0)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  shop                       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, groupId])
+  @@index([shopId])
+  @@index([lastFullyCapturedAt])
+  @@index([lastScanStatus])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  productId  String
+  customerId String
+  orderId    String?
+  rating     Int
+  title      String?
+  comment    String?
+  verified   Boolean  @default(true)
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order      Order?   @relation(fields: [orderId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([customerId])
+  @@index([rating])
+}
+
+model Runner {
+  id                               String                     @id @default(uuid())
+  userId                           String                     @unique
+  publicCode                       String?                    @unique
+  rating                           Float?                     @default(0)
+  totalOrders                      Int                        @default(0)
+  totalEarnings                    Float                      @default(0)
+  status                           String                     @default("INACTIVE")
+  vehicleType                      String?
+  createdAt                        DateTime                   @default(now())
+  updatedAt                        DateTime                   @updatedAt
+  autoPostEnabled                  Boolean                    @default(false)
+  autoPostIntervalMinutes          Int                        @default(30)
+  maxPostsPerRun                   Int                        @default(20)
+  repostPriceMode                  String                     @default("ORIGINAL")
+  repostOrderDetailsEnabled        Boolean                    @default(true)
+  repostFeePercentageEnabled       Boolean                    @default(true)
+  lastAutoPostAt                   DateTime?
+  trialStatus                      String                     @default("TRIAL_PENDING_SETUP")
+  trialStartsAt                    DateTime?
+  trialEndsAt                      DateTime?
+  subscriptionStatus               String                     @default("PENDING_SUBSCRIPTION")
+  repostingStatus                  String                     @default("NOT_STARTED")
+  approvedAt                       DateTime?
+  approvedById                     String?
+  phase1Setup                      Json?
+  whatsappOrderIntakeEnabled       Boolean                    @default(false)
+  whatsappOrderTemplatesVerifiedAt DateTime?
+  whatsappOrderTestedAt            DateTime?
+  refundMode                       String                     @default("MANUAL_REFUND_ONLY")
+  shippingMode                     String                     @default("MANUAL_HANDOVER")
+  supervisionMode                  String                     @default("SUPERVISED")
+  phase2ReadinessNotes             String?
+  phase2ReadinessBlockers          Json?
+  phase2LastReviewedAt             DateTime?
+  phone                            String?
+  serviceArea                      String?
+  vehicleNumber                    String?
+  whatsappGroup                    String?
+  bridgeAccountId                  String?
+  approvedBy                       User?                      @relation("RunnerPhase1ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  bridgeAccount                    WhatsAppBridgeAccount?     @relation(fields: [bridgeAccountId], references: [id], onDelete: SetNull)
+  orderRequests                    WhatsAppOrderRequest[]
+  orders                           Order[]
+  billingInvoices                  PlatformInvoice[]
+  platformBillingEvents            PlatformBillingEvent[]
+  repostLogs                       WhatsAppRepostLog[]
+  stampedMediaLogs                 WhatsAppStampedMediaLog[]
+  user                             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listings                         RunnerListing[]
+  listingSuppressions              RunnerListingSuppression[]
+  shopAssignments                  RunnerShopLink[]
+  subscriptions                    Subscription[]
+  transactions                     RunnerTransaction[]
+  wallet                           RunnerWallet?
+  serviceCities                    RunnerServiceCity[]
+  preferredByCustomers             CustomerRunnerPreference[]
+  repostingGroups                  RunnerRepostingGroup[]
+  submittedShopLinks               RunnerSubmittedShopLink[]
+  botSessions                      BotSession[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([bridgeAccountId])
+  @@index([trialStatus])
+  @@index([subscriptionStatus])
+  @@index([repostingStatus])
+  @@index([approvedById])
+  @@index([whatsappOrderIntakeEnabled])
+  @@index([refundMode])
+  @@index([shippingMode])
+  @@index([supervisionMode])
+}
+
+model RunnerRepostingGroup {
+  id                     String                   @id @default(uuid())
+  runnerId               String
+  whatsappGroupId        String?
+  discoveredGroupId      String?
+  bridgeAccountId        String?
+  groupName              String
+  inviteLink             String?
+  isTestGroup            Boolean                  @default(false)
+  status                 String                   @default("GROUP_LINK_RECEIVED")
+  botJoinStatus          String                   @default("GROUP_LINK_RECEIVED")
+  botAdminStatus         String                   @default("ADMIN_STATUS_PENDING")
+  runnerConfirmedAdminAt DateTime?
+  adminVerifiedAt        DateTime?
+  adminVerifiedById      String?
+  notes                  String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  runner                 Runner                   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  adminVerifiedBy        User?                    @relation("RunnerRepostingGroupVerifiedBy", fields: [adminVerifiedById], references: [id], onDelete: SetNull)
+  bridgeAccount          WhatsAppBridgeAccount?   @relation(fields: [bridgeAccountId], references: [id], onDelete: SetNull)
+  discoveredGroup        WhatsAppDiscoveredGroup? @relation(fields: [discoveredGroupId], references: [id], onDelete: SetNull)
+
+  @@index([runnerId])
+  @@index([status])
+  @@index([botJoinStatus])
+  @@index([botAdminStatus])
+  @@index([adminVerifiedById])
+  @@index([bridgeAccountId])
+  @@index([discoveredGroupId])
+}
+
+model RunnerSubmittedShopLink {
+  id           String    @id @default(uuid())
+  runnerId     String
+  inviteLink   String
+  status       String    @default("PENDING_REVIEW")
+  notes        String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  runner       Runner    @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  reviewedBy   User?     @relation("RunnerSubmittedShopLinkReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([runnerId, inviteLink])
+  @@index([runnerId])
+  @@index([status])
+  @@index([reviewedById])
+}
+
+model BotSession {
+  id             String   @id @default(uuid())
+  runnerId       String?
+  whatsappNumber String
+  currentStep    String   @default("WELCOME")
+  lastQuestion   String?
+  lastResponse   String?
+  sessionStatus  String   @default("ACTIVE")
+  context        Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  runner         Runner?  @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+
+  @@index([runnerId])
+  @@index([whatsappNumber])
+  @@index([sessionStatus])
+  @@index([currentStep])
+}
+
+model RunnerServiceCity {
+  id        String   @id @default(uuid())
+  runnerId  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runner    Runner   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@unique([runnerId, city])
+  @@index([city, active])
+}
+
+model CustomerRunnerPreference {
+  id          String    @id @default(uuid())
+  customerId  String
+  city        String
+  runnerPhone String
+  runnerId    String?
+  status      String    @default("PENDING_MATCH")
+  matchedAt   DateTime?
+  replacedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  customer    User      @relation("CustomerRunnerPreferences", fields: [customerId], references: [id], onDelete: Cascade)
+  runner      Runner?   @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+
+  @@unique([customerId, city])
+  @@index([runnerPhone])
+  @@index([runnerId])
+  @@index([status])
+}
+
+model WhatsAppBridgeAccount {
+  id                    String                        @id @default(uuid())
+  name                  String
+  phone                 String?                       @unique
+  expectedPhone         String?
+  verifiedPhone         String?
+  phoneVerifiedAt       DateTime?
+  verificationStatus    String                        @default("UNVERIFIED")
+  mismatchReason        String?
+  mode                  String                        @default("CAPTURE_AND_POST")
+  sessionName           String?                       @unique
+  workerKey             String?                       @unique
+  status                String                        @default("INACTIVE")
+  capacityRunners       Int                           @default(8)
+  maxPostsPerRun        Int                           @default(20)
+  runtimeSettings       Json?
+  notes                 String?
+  archivedAt            DateTime?
+  lastSeenAt            DateTime?
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  discoveredGroups      WhatsAppBridgeGroupPresence[]
+  discoveredChannels    WhatsAppDiscoveredChannel[]
+  runnerRepostingGroups RunnerRepostingGroup[]
+  runners               Runner[]
+  outboundMessages      WhatsAppOutboundMessage[]
+
+  @@index([status])
+  @@index([mode])
+  @@index([verificationStatus])
+  @@index([archivedAt])
+  @@index([lastSeenAt])
+}
+
+model WhatsAppOutboundMessage {
+  id              String                @id @default(uuid())
+  bridgeAccountId String
+  recipientPhone  String
+  messageType     String                @default("TEXT")
+  messageText     String
+  mediaUrl        String?
+  filename        String?
+  mimeType        String?
+  status          String                @default("PENDING")
+  attempts        Int                   @default(0)
+  lastError       String?
+  claimedAt       DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  bridgeAccount   WhatsAppBridgeAccount @relation(fields: [bridgeAccountId], references: [id], onDelete: Cascade)
+
+  @@index([bridgeAccountId, status, createdAt])
+  @@index([expiresAt])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model RunnerShopLink {
+  id                    String    @id @default(uuid())
+  runnerId              String
+  shopId                String
+  status                String    @default("PENDING")
+  joinedAt              DateTime  @default(now())
+  approvedAt            DateTime?
+  notes                 String?
+  selectedForTest       Boolean   @default(false)
+  selectedForLive       Boolean   @default(false)
+  autoListEnabled       Boolean   @default(true)
+  autoPostEnabled       Boolean   @default(false)
+  markupPercent         Float     @default(0.3)
+  destinationGroup      String?
+  maxPostsPerRun        Int       @default(20)
+  maximumListingAgeDays Int       @default(14)
+  minPrice              Float?
+  maxPrice              Float?
+  categoryFilter        String?
+  requireMedia          Boolean   @default(true)
+  runner                Runner    @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  shop                  Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([runnerId, shopId])
+  @@index([runnerId])
+  @@index([shopId])
+  @@index([status])
+  @@index([selectedForTest])
+  @@index([selectedForLive])
+  @@index([autoListEnabled])
+  @@index([autoPostEnabled])
+}
+
+model RunnerListing {
+  id                     String                    @id @default(uuid())
+  runnerId               String
+  productId              String
+  markup                 Float                     @default(0)
+  runnerPrice            Float
+  status                 String                    @default("ACTIVE")
+  autoPostApproved       Boolean                   @default(false)
+  orderCode              String?                   @unique
+  lastPostedAt           DateTime?
+  postCount              Int                       @default(0)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  startedAt              DateTime?
+  pausedAt               DateTime?
+  stoppedAt              DateTime?
+  scheduledStartAt       DateTime?
+  repostFrequencyMinutes Int                       @default(60)
+  maximumListingAgeDays  Int                       @default(14)
+  expiryDate             DateTime?
+  activeGroupIds         Json?
+  shopId                 String?
+  cartItems              CartItem[]
+  orderItems             OrderItem[]
+  product                Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderRequests          WhatsAppOrderRequest[]
+  repostLogs             WhatsAppRepostLog[]
+  stampedMediaLogs       WhatsAppStampedMediaLog[]
+  runner                 Runner                    @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  shop                   Shop?                     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([runnerId, productId])
+  @@index([runnerId])
+  @@index([productId])
+  @@index([orderCode])
+  @@index([shopId])
+}
+
+model RunnerListingSuppression {
+  id        String   @id @default(uuid())
+  runnerId  String
+  productId String
+  shopId    String?
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  runner    Runner   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@unique([runnerId, productId])
+  @@index([runnerId])
+  @@index([productId])
+  @@index([shopId])
+}
+
+model RunnerSkippedItem {
+  id                   String    @id @default(uuid())
+  runnerId             String
+  productId            String
+  listingId            String?
+  shopId               String?
+  orderCode            String?
+  sourceMessageId      String?
+  source               String    @default("RUNNER_SKIP_COMMAND")
+  reason               String?
+  productName          String?
+  productImageUrls     Json?
+  productImageHashes   Json?
+  imageLabels          Json?
+  matchedSkippedItemId String?
+  matchScore           Float?
+  status               String    @default("ACTIVE")
+  skippedAt            DateTime  @default(now())
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([runnerId, productId])
+  @@index([runnerId])
+  @@index([productId])
+  @@index([shopId])
+  @@index([orderCode])
+  @@index([status])
+  @@index([skippedAt])
+}
+
+model WhatsAppOrderRequest {
+  id                       String                   @id @default(uuid())
+  runnerId                 String?
+  listingId                String?
+  orderId                  String?
+  orderCode                String?
+  customerPhone            String?
+  customerName             String?
+  recipientPhone           String?
+  customerImageUrls        Json?
+  customerImageHashes      Json?
+  matchedStampedMediaLogId String?
+  imageMatchConfidence     Float?
+  imageMatchReason         String?
+  messageId                String?                  @unique
+  messageText              String
+  status                   String                   @default("NEW")
+  auditStatus              String                   @default("CAPTURED")
+  reviewReason             String?
+  failedReason             String?
+  runnerNotifiedAt         DateTime?
+  customerAutoReplyStatus  String                   @default("NOT_SENT")
+  confidence               Float                    @default(0)
+  expectedField            String?
+  conversationState        Json?
+  conversationExpiresAt    DateTime?
+  lastInboundMessageId     String?
+  stateVersion             Int                      @default(1)
+  receivedAt               DateTime                 @default(now())
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  listing                  RunnerListing?           @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  matchedStampedMediaLog   WhatsAppStampedMediaLog? @relation("MatchedStampedMediaLog", fields: [matchedStampedMediaLogId], references: [id], onDelete: SetNull)
+  order                    Order?                   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  runner                   Runner?                  @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  User                     User?                    @relation(fields: [userId], references: [id])
+  userId                   String?
+
+  @@index([runnerId])
+  @@index([listingId])
+  @@index([matchedStampedMediaLogId])
+  @@index([orderId])
+  @@index([orderCode])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([auditStatus])
+  @@index([conversationExpiresAt])
+  @@index([receivedAt])
+}
+
+model WhatsAppRepostLog {
+  id                  String                    @id @default(uuid())
+  runnerId            String
+  listingId           String
+  groupIdOrName       String
+  bridgeAccountId     String?
+  jobId               String?
+  status              String                    @default("POSTED")
+  error               String?
+  retryCount          Int                       @default(0)
+  lastAttemptAt       DateTime?
+  nextRetryAt         DateTime?
+  failedAt            DateTime?
+  captionStatus       String                    @default("UNKNOWN")
+  captionVerifiedAt   DateTime?
+  captionFallbackSent Boolean                   @default(false)
+  postedAt            DateTime                  @default(now())
+  createdAt           DateTime                  @default(now())
+  listing             RunnerListing             @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  runner              Runner                    @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  stampedMediaLogs    WhatsAppStampedMediaLog[]
+
+  @@unique([runnerId, listingId, groupIdOrName])
+  @@index([bridgeAccountId])
+  @@index([runnerId])
+  @@index([postedAt])
+  @@index([status])
+  @@index([captionStatus])
+  @@index([nextRetryAt])
+}
+
+model WhatsAppStampedMediaLog {
+  id                         String                 @id @default(uuid())
+  runnerId                   String
+  listingId                  String
+  repostLogId                String?
+  orderCode                  String?
+  groupIdOrName              String
+  bridgeAccountId            String?
+  jobId                      String?
+  sourceImageUrl             String
+  imageIndex                 Int                    @default(0)
+  mimetype                   String?
+  sourceImageHash            String?
+  stampedImageHash           String?
+  sourceImagePerceptualHash  String?
+  stampedImagePerceptualHash String?
+  sentAt                     DateTime               @default(now())
+  returnedCount              Int                    @default(0)
+  lastReturnedAt             DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  listing                    RunnerListing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  repostLog                  WhatsAppRepostLog?     @relation(fields: [repostLogId], references: [id], onDelete: SetNull)
+  runner                     Runner                 @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  orderRequests              WhatsAppOrderRequest[] @relation("MatchedStampedMediaLog")
+
+  @@index([runnerId])
+  @@index([listingId])
+  @@index([repostLogId])
+  @@index([orderCode])
+  @@index([groupIdOrName])
+  @@index([bridgeAccountId])
+  @@index([sentAt])
+  @@index([sourceImageHash])
+  @@index([stampedImageHash])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model RunnerWallet {
+  id        String   @id @default(uuid())
+  runnerId  String   @unique
+  balance   Float    @default(0)
+  pending   Float    @default(0)
+  updatedAt DateTime @updatedAt
+  runner    Runner   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+}
+
+model RunnerTransaction {
+  id        String   @id @default(uuid())
+  runnerId  String
+  orderId   String?
+  amount    Float
+  type      String
+  status    String   @default("PENDING")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  runner    Runner   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@index([runnerId])
+  @@index([type])
+}
+
+model Order {
+  id                       String                 @id @default(uuid())
+  customerPhone            String
+  customerId               String?
+  runnerId                 String?
+  shopId                   String?
+  status                   String                 @default("CREATED")
+  acceptedAt               DateTime?
+  rejectedAt               DateTime?
+  rejectionReason          String?
+  paymentVerifiedAt        DateTime?
+  paymentVerifiedById      String?
+  totalAmount              Float
+  subtotal                 Float
+  tax                      Float                  @default(0)
+  shippingFee              Float                  @default(0)
+  shippingAddress          Json?
+  notes                    String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  couponId                 String?
+  customerPaymentStatus    String                 @default("UNPAID")
+  customerPaymentMethod    String?
+  customerPaymentReference String?
+  customerPaymentProofUrl  String?
+  customerPaidAt           DateTime?
+  shopPaymentStatus        String                 @default("UNPAID")
+  shopPaymentMethod        String?
+  shopPaymentReference     String?
+  shopPaymentProofUrl      String?
+  shopPaidAt               DateTime?
+  runnerPurchaseStatus     String                 @default("NOT_BOUGHT")
+  runnerBoughtAt           DateTime?
+  handoverStatus           String                 @default("PENDING")
+  deliveredCollectedAt     DateTime?
+  fulfillmentMethod        String?
+  fulfillmentLocation      String?
+  fulfillmentContact       String?
+  fulfillmentNotes         String?
+  procurementCity          String?
+  procurementTripCode      String?
+  procuredAt               DateTime?
+  packedAt                 DateTime?
+  handedOverAt             DateTime?
+  shippingMethod           String?
+  shippingProvider         String?
+  trackingNumber           String?
+  shippingMode             String                 @default("MANUAL_HANDOVER")
+  shippingProviderMetadata Json?
+  operationalBlockers      Json?
+  automationConfidence     Float                  @default(0)
+  supervisionMode          String                 @default("SUPERVISED")
+  weight                   Float?
+  batchOrders              BatchOrder?
+  couponUsages             CouponUsage?
+  reservations             InventoryReservation[]
+  coupon                   Coupon?                @relation(fields: [couponId], references: [id])
+  customer                 User?                  @relation(fields: [customerId], references: [id])
+  runner                   Runner?                @relation(fields: [runnerId], references: [id])
+  items                    OrderItem[]
+  manualPayments           ManualPaymentRecord[]
+  platformBillingEvent     PlatformBillingEvent?
+  payment                  Payment?
+  returnRequests           ReturnRequest[]
+  reviews                  Review[]
+  WhatsAppOrderRequest     WhatsAppOrderRequest[]
+
+  @@index([customerPhone])
+  @@index([customerPaymentStatus])
+  @@index([fulfillmentMethod])
+  @@index([runnerPurchaseStatus])
+  @@index([shopPaymentStatus])
+  @@index([procurementTripCode])
+  @@index([shippingMode])
+  @@index([supervisionMode])
+  @@index([runnerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BillingPlan {
+  id                       String         @id @default(uuid())
+  code                     String         @unique
+  name                     String
+  audience                 String
+  monthlyPrice             Float
+  billingCycle             String         @default("MONTHLY")
+  perConfirmedOrderFee     Float          @default(0)
+  automationAddonPrice     Float          @default(0)
+  orderWorkflowAddonPrice  Float          @default(0)
+  priceEditingAddonPrice   Float          @default(0)
+  shopPriceImageAddonPrice Float          @default(0)
+  currency                 String         @default("ZAR")
+  description              String?
+  features                 Json?
+  status                   String         @default("ACTIVE")
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  subscriptions            Subscription[]
+
+  @@index([audience])
+  @@index([status])
+}
+
+model Subscription {
+  id                         String                 @id @default(uuid())
+  userId                     String
+  runnerId                   String?
+  shopId                     String?
+  planId                     String
+  audience                   String
+  status                     String                 @default("ACTIVE")
+  currency                   String                 @default("ZAR")
+  monthlyPrice               Float
+  billingCycle               String                 @default("MONTHLY")
+  perConfirmedOrderFee       Float                  @default(0)
+  automationAddonEnabled     Boolean                @default(false)
+  automationAddonPrice       Float                  @default(0)
+  orderWorkflowAddonEnabled  Boolean                @default(false)
+  orderWorkflowAddonPrice    Float                  @default(0)
+  priceEditingAddonEnabled   Boolean                @default(false)
+  priceEditingAddonPrice     Float                  @default(0)
+  shopPriceImageAddonEnabled Boolean                @default(false)
+  shopPriceImageAddonPrice   Float                  @default(0)
+  currentPeriodStart         DateTime               @default(now())
+  currentPeriodEnd           DateTime
+  cancelledAt                DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  invoices                   PlatformInvoice[]
+  billingEvents              PlatformBillingEvent[]
+  plan                       BillingPlan            @relation(fields: [planId], references: [id])
+  runner                     Runner?                @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  shop                       Shop?                  @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  user                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([audience])
+  @@index([runnerId])
+  @@index([shopId])
+  @@index([status])
+  @@index([userId])
+}
+
+model PlatformInvoice {
+  id                     String                 @id @default(uuid())
+  subscriptionId         String?
+  userId                 String
+  runnerId               String?
+  shopId                 String?
+  invoiceNumber          String                 @unique
+  currency               String                 @default("ZAR")
+  monthlyFee             Float                  @default(0)
+  orderFees              Float                  @default(0)
+  automationAddonFee     Float                  @default(0)
+  orderWorkflowAddonFee  Float                  @default(0)
+  priceEditingAddonFee   Float                  @default(0)
+  shopPriceImageAddonFee Float                  @default(0)
+  subtotal               Float                  @default(0)
+  total                  Float
+  status                 String                 @default("ISSUED")
+  periodStart            DateTime
+  periodEnd              DateTime
+  dueAt                  DateTime?
+  paidAt                 DateTime?
+  invoicePdfUrl          String?
+  notes                  String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  manualPayments         ManualPaymentRecord[]
+  billingEvents          PlatformBillingEvent[]
+  runner                 Runner?                @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  shop                   Shop?                  @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  subscription           Subscription?          @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([runnerId])
+  @@index([shopId])
+  @@index([status])
+  @@index([subscriptionId])
+  @@index([userId])
+}
+
+model PlatformBillingEvent {
+  id             String           @id @default(uuid())
+  orderId        String           @unique
+  runnerId       String
+  subscriptionId String?
+  invoiceId      String?
+  type           String           @default("CONFIRMED_ORDER")
+  amount         Float
+  currency       String           @default("ZAR")
+  status         String           @default("CHARGEABLE")
+  effectiveAt    DateTime         @default(now())
+  reversedAt     DateTime?
+  reversalReason String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  runner         Runner           @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  subscription   Subscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice        PlatformInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([runnerId])
+  @@index([subscriptionId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([effectiveAt])
+}
+
+model ManualPaymentRecord {
+  id              String           @id @default(uuid())
+  invoiceId       String?
+  orderId         String?
+  payerUserId     String?
+  amount          Float
+  currency        String           @default("ZAR")
+  method          String
+  reference       String?
+  runnerReference String?
+  proofUrl        String?
+  proofText       String?
+  proofImageUrls  Json?
+  receiptNumber   String?
+  receiptPdfUrl   String?
+  source          String           @default("WEB")
+  sourceMessageId String?
+  status          String           @default("PENDING")
+  receivedAt      DateTime         @default(now())
+  verifiedAt      DateTime?
+  verifiedById    String?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  invoice         PlatformInvoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  order           Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payer           User?            @relation(fields: [payerUserId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([orderId])
+  @@index([payerUserId])
+  @@index([runnerReference])
+  @@index([source])
+  @@index([sourceMessageId])
+  @@index([status])
+}
+
+model OrderItem {
+  id                String        @id @default(uuid())
+  orderId           String
+  listingId         String
+  productId         String
+  quantity          Int
+  unitPrice         Float
+  shopPrice         Float
+  commission        Float
+  selectedSize      String?
+  selectedColor     String?
+  customerNote      String?
+  customerImageUrls Json?
+  status            String        @default("PENDING")
+  createdAt         DateTime      @default(now())
+  listing           RunnerListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([listingId])
+}
+
+model Batch {
+  id          String       @id @default(uuid())
+  shopId      String
+  status      String       @default("PENDING")
+  priority    Int          @default(1)
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  shop        Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  batchOrders BatchOrder[]
+  pickList    PickList[]
+
+  @@index([shopId])
+  @@index([status])
+}
+
+model BatchOrder {
+  id      String @id @default(uuid())
+  batchId String
+  orderId String @unique
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([orderId])
+}
+
+model PickList {
+  id        String   @id @default(uuid())
+  batchId   String
+  productId String
+  quantity  Int
+  pickedQty Int      @default(0)
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([productId])
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  orderId               String   @unique
+  amount                Float
+  method                String
+  status                String   @default("PENDING")
+  transactionId         String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  currency              String   @default("usd")
+  failureReason         String?
+  refundedAmount        Float?   @default(0)
+  stripeChargeId        String?  @unique
+  stripePaymentIntentId String?  @unique
+  order                 Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+}
+
+model Cart {
+  id         String     @id @default(uuid())
+  customerId String?    @unique
+  status     String     @default("ACTIVE")
+  expiresAt  DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  customer   User?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items      CartItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model CartItem {
+  id                String        @id @default(uuid())
+  cartId            String
+  listingId         String
+  productId         String
+  quantity          Int           @default(1)
+  customerImageUrls Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  cart              Cart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  listing           RunnerListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, listingId])
+  @@index([cartId])
+  @@index([listingId])
+}
+
+model InventoryReservation {
+  id        String   @id @default(uuid())
+  productId String
+  orderId   String?
+  quantity  Int
+  status    String   @default("ACTIVE")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  order     Order?   @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([orderId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model Coupon {
+  id                   String        @id @default(uuid())
+  code                 String        @unique
+  description          String?
+  discountType         String
+  discountValue        Float
+  minOrderAmount       Float         @default(0)
+  maxDiscount          Float?
+  usageLimit           Int?
+  usageCount           Int           @default(0)
+  perUserLimit         Int?          @default(1)
+  validFrom            DateTime
+  validUntil           DateTime?
+  applicableShops      Json?
+  applicableCategories Json?
+  status               String        @default("ACTIVE")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  usages               CouponUsage[]
+  orders               Order[]
+
+  @@index([code])
+  @@index([status])
+  @@index([validFrom])
+  @@index([validUntil])
+}
+
+model CouponUsage {
+  id        String   @id @default(uuid())
+  couponId  String
+  userId    String
+  orderId   String   @unique
+  discount  Float
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+  @@index([orderId])
+}
+
+model Wishlist {
+  id         String         @id @default(uuid())
+  customerId String         @unique
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  customer   User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items      WishlistItem[]
+
+  @@index([customerId])
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String
+  productId  String
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productId])
+  @@index([wishlistId])
+  @@index([productId])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  channel   String
+  status    String    @default("PENDING")
+  metadata  Json?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  email        Boolean  @default(true)
+  sms          Boolean  @default(false)
+  push         Boolean  @default(true)
+  orderUpdates Boolean  @default(true)
+  promotions   Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  name      String
+  value     String
+  sku       String?
+  price     Float?
+  stockQty  Int      @default(0)
+  images    Json?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([sku])
+  @@index([status])
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  parentId    String?
+  image       String?
+  status      String     @default("ACTIVE")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Category[] @relation("CategoryHierarchy")
+
+  @@index([slug])
+  @@index([parentId])
+  @@index([status])
+}
+
+model TaxRate {
+  id         String    @id @default(uuid())
+  name       String
+  region     String
+  rate       Float
+  category   String?
+  isDefault  Boolean   @default(false)
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([region])
+  @@index([category])
+  @@index([isDefault])
+}
+
+model ShippingProvider {
+  id        String         @id @default(uuid())
+  name      String         @unique
+  code      String         @unique
+  apiKey    String?
+  active    Boolean        @default(true)
+  config    Json?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  rates     ShippingRate[]
+
+  @@index([code])
+  @@index([active])
+}
+
+model ShippingRate {
+  id            String           @id @default(uuid())
+  providerId    String
+  name          String
+  minWeight     Float            @default(0)
+  maxWeight     Float?
+  minPrice      Float            @default(0)
+  maxPrice      Float?
+  flatRate      Float?
+  ratePerKg     Float?
+  ratePercent   Float?
+  estimatedDays Int              @default(5)
+  regions       Json?
+  status        String           @default("ACTIVE")
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  provider      ShippingProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+}
+
+model ReturnRequest {
+  id                       String        @id @default(uuid())
+  orderId                  String
+  orderItemId              String?
+  customerId               String
+  reason                   String
+  description              String?
+  status                   String        @default("PENDING")
+  refundAmount             Float
+  refundType               String        @default("ORIGINAL_PAYMENT")
+  refundMode               String        @default("MANUAL_REFUND_ONLY")
+  refundStatus             String        @default("NOT_STARTED")
+  approvedRefundAmount     Float?
+  refundProcessorReference String?
+  refundHandledById        String?
+  refundHandledAt          DateTime?
+  images                   Json?
+  rmaNumber                String        @unique
+  trackingNumber           String?
+  notes                    String?
+  resolvedAt               DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  customer                 User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order                    Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refundAudits             RefundAudit[]
+
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([refundMode])
+  @@index([refundStatus])
+  @@index([rmaNumber])
+}
+
+model RefundAudit {
+  id                 String        @id @default(uuid())
+  returnRequestId    String
+  orderId            String
+  actorUserId        String?
+  action             String
+  refundMode         String
+  requestedAmount    Float
+  approvedAmount     Float?
+  processorReference String?
+  status             String        @default("PENDING")
+  notes              String?
+  metadata           Json?
+  createdAt          DateTime      @default(now())
+  returnRequest      ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId])
+  @@index([orderId])
+  @@index([actorUserId])
+  @@index([refundMode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SupportTicket {
+  id          String           @id @default(uuid())
+  customerId  String
+  subject     String
+  description String
+  priority    String           @default("MEDIUM")
+  status      String           @default("OPEN")
+  category    String
+  assignedTo  String?
+  orderId     String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  resolvedAt  DateTime?
+  messages    SupportMessage[]
+  customer    User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model SupportMessage {
+  id          String        @id @default(uuid())
+  ticketId    String
+  senderId    String
+  message     String
+  isInternal  Boolean       @default(false)
+  attachments Json?
+  createdAt   DateTime      @default(now())
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([senderId])
+}
+
+model AnalyticsSnapshot {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  type      String
+  metrics   Json
+  createdAt DateTime @default(now())
+
+  @@unique([date, type])
+  @@index([date])
+  @@index([type])
+}

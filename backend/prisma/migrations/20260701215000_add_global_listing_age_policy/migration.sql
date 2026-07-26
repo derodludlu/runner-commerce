@@ -1,0 +1,2 @@
+ALTER TABLE "RunnerShopLink"
+ADD COLUMN "maximumListingAgeDays" INTEGER NOT NULL DEFAULT 14;

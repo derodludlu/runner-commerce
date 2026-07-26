@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "scripts",
+    "**/*spec.ts",
+    "prisma",
+    "prisma.config.ts",
+    "prisma/migrations"
+  ]
+}

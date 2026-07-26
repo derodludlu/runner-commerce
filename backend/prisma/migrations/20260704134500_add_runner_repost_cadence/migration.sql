@@ -1,0 +1,7 @@
+ALTER TABLE "Runner"
+ADD COLUMN IF NOT EXISTS "autoPostIntervalMinutes" INTEGER NOT NULL DEFAULT 30,
+ADD COLUMN IF NOT EXISTS "maxPostsPerRun" INTEGER NOT NULL DEFAULT 30;
+
+UPDATE "WhatsAppBridgeAccount"
+SET "maxPostsPerRun" = 30
+WHERE "maxPostsPerRun" = 20;

@@ -1,0 +1,10 @@
+# Example named tunnel config. Copy outside the repo with real tunnel credentials.
+# Do not stop WhatsApp bridge/monitor when starting the tunnel.
+
+tunnel: runner-commerce-api
+credentials-file: C:\Users\YOUR_USER\.cloudflared\runner-commerce-api.json
+
+ingress:
+  - hostname: api.your-domain.example
+    service: http://localhost:3001
+  - service: http_status:404
