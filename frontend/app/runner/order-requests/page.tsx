@@ -18,6 +18,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useRunnerGuard } from "@/hooks/useRoleGuard";
 import { runnerApi } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { isVideoMedia, parseProductMedia } from "@/lib/productMedia";
 import type { WhatsAppOrderRequest } from "@/lib/types";
 
@@ -39,10 +40,9 @@ const STATUS_FILTERS: RequestStatus[] = [
   "CONVERTED",
   "CLOSED",
 ];
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 function mediaUrl(url: string) {
-  return url.startsWith("/uploads/") ? `${API_URL}${url}` : url;
+  return resolveMediaUrl(url);
 }
 
 export default function RunnerOrderRequestsPage() {

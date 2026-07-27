@@ -3,7 +3,15 @@
 import axios, { AxiosInstance } from "axios";
 import { AuthResponse, LoginCredentials } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const configuredApiUrl =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+const API_URL =
+  typeof window !== "undefined" &&
+  configuredApiUrl.startsWith("http") &&
+  !configuredApiUrl.includes(window.location.host)
+    ? "/api/backend"
+    : configuredApiUrl;
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -66,7 +74,11 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>("/auth/login", credentials);
+    const response = await axios.post<AuthResponse>(
+      "/api/auth/login",
+      credentials,
+      { withCredentials: true },
+    );
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(response.data.user));
     }
@@ -74,7 +86,11 @@ export const authApi = {
   },
 
   register: async (userData: any) => {
-    const response = await api.post<AuthResponse>("/auth/register", userData);
+    const response = await axios.post<AuthResponse>(
+      "/api/auth/register",
+      userData,
+      { withCredentials: true },
+    );
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(response.data.user));
     }
@@ -83,7 +99,7 @@ export const authApi = {
 
   logout: async () => {
     try {
-      await api.post("/auth/logout");
+      await axios.post("/api/auth/logout", null, { withCredentials: true });
     } catch {
       // Local cleanup still needs to happen even if the server is unavailable.
     }
@@ -95,7 +111,7 @@ export const authApi = {
   },
 
   me: async () => {
-    const response = await api.get("/auth/me");
+    const response = await axios.get("/api/auth/me", { withCredentials: true });
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(response.data));
     }

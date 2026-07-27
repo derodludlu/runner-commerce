@@ -5,11 +5,49 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { getRoleHomePage } from "@/lib/rbac";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { toast } from "sonner";
 import { User, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
 
+type LoginErrorData = {
+  message?: string | string[];
+};
+
+function getLoginErrorDetails(error: unknown) {
+  if (typeof error !== "object" || error === null || !("response" in error)) {
+    return { hasResponse: false, serverMessage: undefined, status: undefined };
+  }
+
+  const response = (
+    error as { response?: { data?: LoginErrorData; status?: number } }
+  ).response;
+
+  return {
+    hasResponse: Boolean(response),
+    serverMessage: response?.data?.message,
+    status: response?.status,
+  };
+}
+
+function resolveLoginRedirect(fallbackPath: string) {
+  if (typeof window === "undefined") return fallbackPath;
+
+  const rawRedirect = new URLSearchParams(window.location.search).get(
+    "redirect",
+  );
+  if (!rawRedirect) return fallbackPath;
+
+  try {
+    const redirectUrl = new URL(rawRedirect, window.location.origin);
+    if (redirectUrl.origin !== window.location.origin) return fallbackPath;
+
+    return `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+  } catch {
+    return fallbackPath;
+  }
+}
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -42,15 +80,15 @@ export default function LoginPage() {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Force full page reload to refresh auth state
-      const redirectPath =
-        new URLSearchParams(window.location.search).get("redirect") ||
-        (response.user.role === "RUNNER" ? "/runner/dashboard" : "/");
+      const redirectPath = resolveLoginRedirect(
+        getRoleHomePage(response.user.role),
+      );
       window.location.href = response.user.mustChangePassword
         ? "/account/security?required=1"
         : redirectPath;
-    } catch (error: any) {
-      const status = error.response?.status;
-      const serverMessage = error.response?.data?.message;
+    } catch (error: unknown) {
+      const { hasResponse, serverMessage, status } =
+        getLoginErrorDetails(error);
       const message =
         status === 429
           ? "Too many sign-in attempts. Wait briefly, then try again or reset your password."
@@ -58,7 +96,7 @@ export default function LoginPage() {
             ? "This account is not active. Contact Runner Commerce support."
             : status === 401
               ? "The login details do not match. Check your identifier and password, or use Forgot Password."
-              : !error.response
+              : !hasResponse
                 ? "Runner Commerce could not reach the server. Check your connection and try again."
                 : Array.isArray(serverMessage)
                   ? serverMessage.join(" ")

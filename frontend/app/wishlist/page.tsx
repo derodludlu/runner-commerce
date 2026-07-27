@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Heart, ShoppingCart, Trash2, Package } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { parseProductMedia } from "@/lib/productMedia";
 
 interface WishlistItem {
   id: string;
@@ -129,6 +130,7 @@ export default function WishlistPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {wishlistItems.map((item) => {
           const listing = item.product.listings[0];
+          const productImage = parseProductMedia(item.product.images)[0];
           return (
             <div
               key={item.id}
@@ -137,9 +139,9 @@ export default function WishlistPage() {
               {/* Product Image */}
               <Link href={`/products/${item.productId}`}>
                 <div className="w-full h-48 bg-gray-100 overflow-hidden">
-                  {item.product.images?.[0] ? (
+                  {productImage ? (
                     <img
-                      src={item.product.images[0]}
+                      src={productImage}
                       alt={item.product.name}
                       className="w-full h-full object-cover hover:scale-105 transition-transform"
                     />

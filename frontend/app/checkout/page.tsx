@@ -2,18 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CheckCircle2,
-  MapPin,
-  Package,
-  Truck,
-} from "lucide-react";
+import { CheckCircle2, MapPin, Package, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { customersApi, ordersApi } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
 import { getCartPricing, getItemPricing } from "@/lib/pricing";
+import { parseProductMedia } from "@/lib/productMedia";
 
 const FULFILMENT_OPTIONS = [
   { value: "COLLECTION", label: "Collect from runner" },
@@ -47,7 +43,10 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!user) return;
-    customersApi.getRunnerPreferences().then((response) => setRunnerPreferences(response.data || [])).catch(() => setRunnerPreferences([]));
+    customersApi
+      .getRunnerPreferences()
+      .then((response) => setRunnerPreferences(response.data || []))
+      .catch(() => setRunnerPreferences([]));
   }, [user]);
 
   const pricing = useMemo(() => getCartPricing(items, 0), [items]);
@@ -56,11 +55,18 @@ export default function CheckoutPage() {
       items.reduce<
         Record<
           string,
-          { runnerId: string; runnerName: string; city: string; items: typeof items }
+          {
+            runnerId: string;
+            runnerName: string;
+            city: string;
+            items: typeof items;
+          }
         >
       >((groups, item) => {
         const runnerId = item.listing.runnerId;
-        const city = String((item.product as any)?.shop?.procurementCity || "DURBAN").toUpperCase();
+        const city = String(
+          (item.product as any)?.shop?.procurementCity || "DURBAN",
+        ).toUpperCase();
         const key = `${runnerId}:${city}`;
         if (!groups[key]) {
           groups[key] = {
@@ -106,7 +112,10 @@ export default function CheckoutPage() {
     });
     if (overrideGroups.length > 0) {
       const runnerList = overrideGroups
-        .map((group) => `${group.runnerName} for ${group.city[0] + group.city.slice(1).toLowerCase()}`)
+        .map(
+          (group) =>
+            `${group.runnerName} for ${group.city[0] + group.city.slice(1).toLowerCase()}`,
+        )
         .join(", ");
       const confirmed = window.confirm(
         `These items came through ${runnerList}. This may differ from your trusted runner setup. Continue with this runner?`,
@@ -201,7 +210,8 @@ export default function CheckoutPage() {
           Confirm your order
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Your trusted runner reviews the order first. Payment is requested only after acceptance.
+          Your trusted runner reviews the order first. Payment is requested only
+          after acceptance.
         </p>
       </div>
 
@@ -221,91 +231,94 @@ export default function CheckoutPage() {
               <Package className="h-5 w-5" /> Item details
             </h2>
             <div className="space-y-5">
-              {items.map((item) => (
-                <div
-                  key={item.listing.id}
-                  className="grid gap-3 border-b pb-5 last:border-b-0 last:pb-0 sm:grid-cols-[72px_1fr]"
-                  style={{ borderColor: "var(--card-border)" }}
-                >
-                  <div className="aspect-square overflow-hidden rounded-md bg-black/5">
-                    {item.product.images?.[0] && (
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
+              {items.map((item) => {
+                const productImage = parseProductMedia(item.product.images)[0];
+                return (
+                  <div
+                    key={item.listing.id}
+                    className="grid gap-3 border-b pb-5 last:border-b-0 last:pb-0 sm:grid-cols-[72px_1fr]"
+                    style={{ borderColor: "var(--card-border)" }}
+                  >
+                    <div className="aspect-square overflow-hidden rounded-md bg-black/5">
+                      {productImage && (
+                        <img
+                          src={productImage}
+                          alt={item.product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p
+                            className="font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {item.product.name}
+                          </p>
+                          <p
+                            className="text-sm"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            Quantity {item.quantity}
+                          </p>
+                        </div>
                         <p
-                          className="font-medium"
-                          style={{ color: "var(--text-primary)" }}
+                          className="font-semibold"
+                          style={{ color: "var(--accent)" }}
                         >
-                          {item.product.name}
-                        </p>
-                        <p
-                          className="text-sm"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Quantity {item.quantity}
+                          {formatCurrency(
+                            getItemPricing(
+                              item.product,
+                              item.listing,
+                              item.quantity,
+                            ).finalSubtotal,
+                          )}
                         </p>
                       </div>
-                      <p
-                        className="font-semibold"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        {formatCurrency(
-                          getItemPricing(
-                            item.product,
-                            item.listing,
-                            item.quantity,
-                          ).finalSubtotal,
-                        )}
-                      </p>
-                    </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                      <input
-                        value={choices[item.listing.id]?.size || ""}
-                        onChange={(event) =>
-                          updateChoice(
-                            item.listing.id,
-                            "size",
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Size"
-                        className="rounded-md border px-3 py-2 text-sm"
-                      />
-                      <input
-                        value={choices[item.listing.id]?.color || ""}
-                        onChange={(event) =>
-                          updateChoice(
-                            item.listing.id,
-                            "color",
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Colour"
-                        className="rounded-md border px-3 py-2 text-sm"
-                      />
-                      <input
-                        value={choices[item.listing.id]?.note || ""}
-                        onChange={(event) =>
-                          updateChoice(
-                            item.listing.id,
-                            "note",
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Item note"
-                        className="rounded-md border px-3 py-2 text-sm"
-                      />
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        <input
+                          value={choices[item.listing.id]?.size || ""}
+                          onChange={(event) =>
+                            updateChoice(
+                              item.listing.id,
+                              "size",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Size"
+                          className="rounded-md border px-3 py-2 text-sm"
+                        />
+                        <input
+                          value={choices[item.listing.id]?.color || ""}
+                          onChange={(event) =>
+                            updateChoice(
+                              item.listing.id,
+                              "color",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Colour"
+                          className="rounded-md border px-3 py-2 text-sm"
+                        />
+                        <input
+                          value={choices[item.listing.id]?.note || ""}
+                          onChange={(event) =>
+                            updateChoice(
+                              item.listing.id,
+                              "note",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Item note"
+                          className="rounded-md border px-3 py-2 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
@@ -403,9 +416,26 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border p-5" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
-            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Payment comes after acceptance</h2>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Your runner will confirm the order and amount. Runner Commerce will then notify you to submit the payment reference or proof.</p>
+          <section
+            className="rounded-lg border p-5"
+            style={{
+              background: "var(--card-bg)",
+              borderColor: "var(--card-border)",
+            }}
+          >
+            <h2
+              className="font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Payment comes after acceptance
+            </h2>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Your runner will confirm the order and amount. Runner Commerce
+              will then notify you to submit the payment reference or proof.
+            </p>
           </section>
         </div>
 
@@ -456,7 +486,8 @@ export default function CheckoutPage() {
                 style={{ borderColor: "var(--card-border)" }}
               >
                 <span style={{ color: "var(--text-primary)" }}>
-                  {group.runnerName} · {group.city[0] + group.city.slice(1).toLowerCase()}
+                  {group.runnerName} ·{" "}
+                  {group.city[0] + group.city.slice(1).toLowerCase()}
                 </span>
                 <span style={{ color: "var(--text-secondary)" }}>
                   {group.items.length} item{group.items.length === 1 ? "" : "s"}

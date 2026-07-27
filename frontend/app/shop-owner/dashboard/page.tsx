@@ -35,6 +35,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import ShopWhatsAppAvatars, {
   ShopWhatsAppGroupAvatar,
 } from "@/components/shops/ShopWhatsAppAvatars";
+import { parseProductMedia } from "@/lib/productMedia";
 
 interface Shop {
   id: string;
@@ -1544,62 +1545,65 @@ export default function ShopOwnerDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="bg-white rounded-lg shadow-md p-4"
-                    >
-                      {product.images?.[0] && (
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="w-full h-32 object-cover rounded-lg mb-3"
-                        />
-                      )}
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{product.name}</h3>
-                          {product.category && (
-                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 inline-block">
-                              {product.category}
+                  {products.map((product) => {
+                    const productImage = parseProductMedia(product.images)[0];
+                    return (
+                      <div
+                        key={product.id}
+                        className="bg-white rounded-lg shadow-md p-4"
+                      >
+                        {productImage && (
+                          <img
+                            src={productImage}
+                            alt={product.name}
+                            className="w-full h-32 object-cover rounded-lg mb-3"
+                          />
+                        )}
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold">{product.name}</h3>
+                            {product.category && (
+                              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 inline-block">
+                                {product.category}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ml-2 ${
+                              STATUS_COLORS[product.status] ||
+                              "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {product.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-3">
+                          <div>
+                            <span className="text-primary font-bold text-lg">
+                              {formatCurrency(product.basePrice)}
                             </span>
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ml-2 ${
-                            STATUS_COLORS[product.status] ||
-                            "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {product.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div>
-                          <span className="text-primary font-bold text-lg">
-                            {formatCurrency(product.basePrice)}
-                          </span>
-                          <span className="text-xs text-gray-500 ml-2">
-                            Stock: {product.stockQty}
-                          </span>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                            <span className="text-xs text-gray-500 ml-2">
+                              Stock: {product.stockQty}
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditProduct(product)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(product)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1896,6 +1900,9 @@ export default function ShopOwnerDashboard() {
                                   index === 0
                                     ? candidate.right
                                     : candidate.left;
+                                const productImage = parseProductMedia(
+                                  product.images,
+                                )[0];
                                 return (
                                   <div
                                     key={product.id}
@@ -1903,9 +1910,9 @@ export default function ShopOwnerDashboard() {
                                   >
                                     <div className="flex gap-3">
                                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded bg-gray-100">
-                                        {product.images[0] ? (
+                                        {productImage ? (
                                           <img
-                                            src={product.images[0]}
+                                            src={productImage}
                                             alt={product.name}
                                             className="h-full w-full object-cover"
                                           />
@@ -2390,14 +2397,18 @@ export default function ShopOwnerDashboard() {
                                     .map((url, index) => (
                                       <a
                                         key={`${item.id}-${url}`}
-                                        href={url}
+                                        href={
+                                          parseProductMedia([url])[0] || url
+                                        }
                                         target="_blank"
                                         rel="noreferrer"
                                         className="block aspect-square rounded-lg overflow-hidden border bg-gray-100 hover:ring-2 hover:ring-primary"
                                         title="Open captured image"
                                       >
                                         <img
-                                          src={url}
+                                          src={
+                                            parseProductMedia([url])[0] || url
+                                          }
                                           alt={`Captured product media ${index + 1}`}
                                           className="w-full h-full object-cover"
                                           loading="lazy"

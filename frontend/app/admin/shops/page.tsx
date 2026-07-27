@@ -17,6 +17,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import ShopWhatsAppAvatars, {
   ShopWhatsAppGroupAvatar,
 } from "@/components/shops/ShopWhatsAppAvatars";
+import { parseProductMedia } from "@/lib/productMedia";
 
 interface Shop {
   id: string;
@@ -365,12 +366,13 @@ export default function AdminShopsPage() {
                   {[pair.left, pair.right].map(
                     (product: any, index: number) => {
                       const other = index === 0 ? pair.right : pair.left;
+                      const productImage = parseProductMedia(product.images)[0];
                       return (
                         <div key={product.id} className="rounded border p-3">
                           <div className="flex gap-3">
-                            {product.images?.[0] ? (
+                            {productImage ? (
                               <img
-                                src={product.images[0]}
+                                src={productImage}
                                 alt=""
                                 className="h-16 w-16 rounded object-cover"
                               />

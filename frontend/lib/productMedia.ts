@@ -1,15 +1,21 @@
+import { resolveMediaUrl } from "./mediaUrl";
+
+const cleanMedia = (items: unknown[]) =>
+  items
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => resolveMediaUrl(item))
+    .filter(Boolean);
+
 export const parseProductMedia = (media: unknown): string[] => {
   if (!media) return [];
   if (Array.isArray(media)) {
-    return media.filter((item): item is string => typeof item === "string");
+    return cleanMedia(media);
   }
 
   if (typeof media === "string") {
     try {
       const parsed = JSON.parse(media);
-      return Array.isArray(parsed)
-        ? parsed.filter((item): item is string => typeof item === "string")
-        : [];
+      return Array.isArray(parsed) ? cleanMedia(parsed) : [];
     } catch {
       return [];
     }

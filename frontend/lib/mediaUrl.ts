@@ -1,6 +1,10 @@
 const configuredApiUrl =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+function proxiedUploadUrl(media: URL) {
+  return `/api/backend${media.pathname}${media.search}${media.hash}`;
+}
+
 function apiBaseUrl() {
   try {
     const configured = new URL(configuredApiUrl);
@@ -31,19 +35,31 @@ export function resolveMediaUrl(
     const isLocalStoredUrl = ["localhost", "127.0.0.1"].includes(
       media.hostname,
     );
+    const isUploadPath = media.pathname.startsWith("/uploads/");
 
-    if (isLocalStoredUrl && media.pathname.startsWith("/uploads/")) {
+    if (isLocalStoredUrl && isUploadPath) {
       media.protocol = apiBase.protocol;
       media.hostname = apiBase.hostname;
       media.port = apiBase.port;
     }
 
-    if (cacheVersion && media.pathname.startsWith("/uploads/")) {
+    if (cacheVersion && isUploadPath) {
       media.searchParams.set("v", cacheVersion);
     }
-    resolved = media.toString();
+
+    const isBackendUpload =
+      isUploadPath &&
+      (media.origin === apiBase.origin ||
+        isLocalStoredUrl ||
+        source.startsWith("/uploads/"));
+
+    resolved = isBackendUpload ? proxiedUploadUrl(media) : media.toString();
   } catch {
-    resolved = source.startsWith("/") ? `${apiBaseUrl()}${source}` : source;
+    resolved = source.startsWith("/uploads/")
+      ? `/api/backend${source}`
+      : source.startsWith("/")
+        ? `${apiBaseUrl()}${source}`
+        : source;
   }
 
   return resolved;

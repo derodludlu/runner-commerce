@@ -16,12 +16,11 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useRunnerGuard } from "@/hooks/useRoleGuard";
 import { runnerApi } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 function mediaUrl(url?: string | null) {
   if (!url) return "";
-  return url.startsWith("/uploads/") ? `${API_URL}${url}` : url;
+  return resolveMediaUrl(url);
 }
 
 type ShoppingCustomer = {

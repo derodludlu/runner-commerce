@@ -9,6 +9,8 @@ import { ordersApi } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { parseProductMedia } from "@/lib/productMedia";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
   Package,
   Truck,
@@ -21,8 +23,16 @@ import { toast } from "sonner";
 
 // Status step configuration
 const STATUS_STEPS = [
-  { status: "PENDING_RUNNER_ACTIVATION", label: "Runner Activation Needed", icon: Clock },
-  { status: "AWAITING_RUNNER_ACCEPTANCE", label: "Runner Reviewing", icon: Clock },
+  {
+    status: "PENDING_RUNNER_ACTIVATION",
+    label: "Runner Activation Needed",
+    icon: Clock,
+  },
+  {
+    status: "AWAITING_RUNNER_ACCEPTANCE",
+    label: "Runner Reviewing",
+    icon: Clock,
+  },
   { status: "PENDING_PAYMENT", label: "Payment Requested", icon: Clock },
   { status: "ORDER_CONFIRMED", label: "Customer Confirmed", icon: Clock },
   {
@@ -56,7 +66,10 @@ const legacyStepAliases: Record<string, string> = {
 };
 
 const NEXT_RUNNER_STATUS: Record<string, { status: string; label: string }> = {
-  AWAITING_RUNNER_ACCEPTANCE: { status: "PENDING_PAYMENT", label: "Accept order" },
+  AWAITING_RUNNER_ACCEPTANCE: {
+    status: "PENDING_PAYMENT",
+    label: "Accept order",
+  },
   PAID: { status: "BUYING_TRIP_PLANNED", label: "Plan buying trip" },
   BUYING_TRIP_PLANNED: { status: "BUYING_IN_PROGRESS", label: "Start buying" },
   BUYING_IN_PROGRESS: {
@@ -151,16 +164,18 @@ export default function OrderTrackingPage() {
     : [];
   const runnerHasWorkflowControls =
     user?.role === "RUNNER" &&
-    permittedActions.some((action: string) => action !== "INVITE_RUNNER_TO_ACTIVATE");
+    permittedActions.some(
+      (action: string) => action !== "INVITE_RUNNER_TO_ACTIVATE",
+    );
   const canManualTrack = isAdminUser || runnerHasWorkflowControls;
   const nextRunnerStatus = NEXT_RUNNER_STATUS[order.status];
   const canAdvanceOrder = Boolean(
     canManualTrack &&
-      nextRunnerStatus &&
-      (isAdminUser ||
-        permittedActions.includes(nextRunnerStatus.status) ||
-        (order.status === "AWAITING_RUNNER_ACCEPTANCE" &&
-          permittedActions.includes("ACCEPT"))),
+    nextRunnerStatus &&
+    (isAdminUser ||
+      permittedActions.includes(nextRunnerStatus.status) ||
+      (order.status === "AWAITING_RUNNER_ACCEPTANCE" &&
+        permittedActions.includes("ACCEPT"))),
   );
   const canRejectOrder =
     canManualTrack &&
@@ -221,30 +236,52 @@ export default function OrderTrackingPage() {
   };
 
   const rejectOrder = async () => {
-    const reason = window.prompt("Why are you rejecting this order?", "Item or trip unavailable")?.trim();
+    const reason = window
+      .prompt("Why are you rejecting this order?", "Item or trip unavailable")
+      ?.trim();
     if (!reason) return;
     setStatusBusy(true);
     try {
-      const response = await ordersApi.updateStatus(order.id, "CANCELLED", { rejectionReason: reason });
+      const response = await ordersApi.updateStatus(order.id, "CANCELLED", {
+        rejectionReason: reason,
+      });
       setOrder(response.data);
       toast.success("Order rejected and customer notified");
-    } catch (error: any) { toast.error(error.response?.data?.message || "Could not reject order"); }
-    finally { setStatusBusy(false); }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Could not reject order");
+    } finally {
+      setStatusBusy(false);
+    }
   };
 
   const submitPayment = async () => {
     if (paymentMethod !== "CASH" && !paymentReference.trim() && !paymentProof) {
-      toast.error("Add a payment reference or proof"); return;
+      toast.error("Add a payment reference or proof");
+      return;
     }
     setPaymentBusy(true);
     try {
       let proofUrl: string | undefined;
-      if (paymentProof) proofUrl = (await ordersApi.uploadPaymentProof(order.id, paymentProof)).data.proofUrl;
-      const response = await ordersApi.submitCustomerPayment(order.id, { method: paymentMethod, reference: paymentReference.trim() || undefined, proofUrl, amount: order.totalAmount });
+      if (paymentProof)
+        proofUrl = (await ordersApi.uploadPaymentProof(order.id, paymentProof))
+          .data.proofUrl;
+      const response = await ordersApi.submitCustomerPayment(order.id, {
+        method: paymentMethod,
+        reference: paymentReference.trim() || undefined,
+        proofUrl,
+        amount: order.totalAmount,
+      });
       setOrder(response.data.order);
-      toast.success(response.data.duplicate ? "Payment was already submitted" : "Payment sent to your runner for verification");
-    } catch (error: any) { toast.error(error.response?.data?.message || "Could not submit payment"); }
-    finally { setPaymentBusy(false); }
+      toast.success(
+        response.data.duplicate
+          ? "Payment was already submitted"
+          : "Payment sent to your runner for verification",
+      );
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Could not submit payment");
+    } finally {
+      setPaymentBusy(false);
+    }
   };
 
   return (
@@ -270,9 +307,7 @@ export default function OrderTrackingPage() {
       </div>
 
       {order.status === "PENDING_RUNNER_ACTIVATION" && (
-        <div
-          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
-        >
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           This order is captured, but the trusted runner still needs to activate
           Phase 2 order management before they can manage tracking here.
         </div>
@@ -308,7 +343,16 @@ export default function OrderTrackingPage() {
         </div>
       )}
       {canRejectOrder && (
-        <div className="flex justify-end"><Button variant="outline" themed disabled={statusBusy} onClick={rejectOrder}>Reject order</Button></div>
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            themed
+            disabled={statusBusy}
+            onClick={rejectOrder}
+          >
+            Reject order
+          </Button>
+        </div>
       )}
 
       {/* Status Timeline */}
@@ -393,18 +437,84 @@ export default function OrderTrackingPage() {
         </div>
       </div>
 
-      {user?.role === "CUSTOMER" && order.status === "PENDING_PAYMENT" && order.customerPaymentStatus !== "SUBMITTED" && (
-        <section className="rounded-xl border p-5" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--card-border)" }}>
-          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Submit payment for runner verification</h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Your runner accepted the order. Add the payment details they gave you.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm" style={{ color: "var(--text-secondary)" }}>Payment method<select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="theme-input mt-1 min-h-11 w-full rounded-md border px-3"><option value="MTN_MOMO">MTN MoMo</option><option value="EFT">EFT</option><option value="CASH_DEPOSIT">Cash deposit</option><option value="INSTANT_MONEY">Instant Money</option><option value="EWALLET">eWallet</option><option value="UNAYO">Unayo</option><option value="CASH">Cash</option></select></label>
-            <label className="text-sm" style={{ color: "var(--text-secondary)" }}>Reference<input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} className="theme-input mt-1 min-h-11 w-full rounded-md border px-3" placeholder="Transaction/reference number" /></label>
-            <label className="text-sm sm:col-span-2" style={{ color: "var(--text-secondary)" }}>Proof image<input type="file" accept="image/*" onChange={(e) => setPaymentProof(e.target.files?.[0] || null)} className="mt-2 block w-full" /></label>
-          </div>
-          <Button className="mt-4" themed isLoading={paymentBusy} onClick={submitPayment}>Submit payment</Button>
-        </section>
-      )}
+      {user?.role === "CUSTOMER" &&
+        order.status === "PENDING_PAYMENT" &&
+        order.customerPaymentStatus !== "SUBMITTED" && (
+          <section
+            className="rounded-xl border p-5"
+            style={{
+              backgroundColor: "var(--card-bg)",
+              borderColor: "var(--card-border)",
+            }}
+          >
+            <h2
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Submit payment for runner verification
+            </h2>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Your runner accepted the order. Add the payment details they gave
+              you.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label
+                className="text-sm"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Payment method
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="theme-input mt-1 min-h-11 w-full rounded-md border px-3"
+                >
+                  <option value="MTN_MOMO">MTN MoMo</option>
+                  <option value="EFT">EFT</option>
+                  <option value="CASH_DEPOSIT">Cash deposit</option>
+                  <option value="INSTANT_MONEY">Instant Money</option>
+                  <option value="EWALLET">eWallet</option>
+                  <option value="UNAYO">Unayo</option>
+                  <option value="CASH">Cash</option>
+                </select>
+              </label>
+              <label
+                className="text-sm"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Reference
+                <input
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="theme-input mt-1 min-h-11 w-full rounded-md border px-3"
+                  placeholder="Transaction/reference number"
+                />
+              </label>
+              <label
+                className="text-sm sm:col-span-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Proof image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                  className="mt-2 block w-full"
+                />
+              </label>
+            </div>
+            <Button
+              className="mt-4"
+              themed
+              isLoading={paymentBusy}
+              onClick={submitPayment}
+            >
+              Submit payment
+            </Button>
+          </section>
+        )}
 
       {/* Order Details */}
       <div
@@ -422,82 +532,85 @@ export default function OrderTrackingPage() {
         </h2>
 
         <div className="space-y-4">
-          {order.items?.map((item: any) => (
-            <div
-              key={item.id}
-              className="flex gap-4 py-3 border-b last:border-0"
-              style={{ borderColor: "var(--card-border)" }}
-            >
+          {order.items?.map((item: any) => {
+            const productImage = parseProductMedia(item.product?.images)[0];
+            return (
               <div
-                className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0"
-                style={{ backgroundColor: "var(--bg-secondary)" }}
+                key={item.id}
+                className="flex gap-4 py-3 border-b last:border-0"
+                style={{ borderColor: "var(--card-border)" }}
               >
-                {item.product?.images?.[0] ? (
-                  <img
-                    src={item.product.images[0]}
-                    alt={item.product.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center"
-                    style={{ color: "var(--text-muted)" }}
+                <div
+                  className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0"
+                  style={{ backgroundColor: "var(--bg-secondary)" }}
+                >
+                  {productImage ? (
+                    <img
+                      src={productImage}
+                      alt={item.product.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <ShoppingBag className="w-6 h-6" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
                   >
-                    <ShoppingBag className="w-6 h-6" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1">
-                <p
-                  className="font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {item.product?.name || "Product"}
-                </p>
-                <p
-                  className="text-sm"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Qty: {item.quantity}
-                </p>
-                {(item.selectedSize || item.selectedColor) && (
+                    {item.product?.name || "Product"}
+                  </p>
                   <p
                     className="text-sm"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {[
-                      item.selectedSize && `Size ${item.selectedSize}`,
-                      item.selectedColor && `Colour ${item.selectedColor}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    Qty: {item.quantity}
                   </p>
-                )}
-                {item.customerNote && (
+                  {(item.selectedSize || item.selectedColor) && (
+                    <p
+                      className="text-sm"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {[
+                        item.selectedSize && `Size ${item.selectedSize}`,
+                        item.selectedColor && `Colour ${item.selectedColor}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
+                  {item.customerNote && (
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Note: {item.customerNote}
+                    </p>
+                  )}
                   <p
                     className="text-xs"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    Note: {item.customerNote}
+                    Shop {formatCurrency(item.shopPrice)} + runner fee{" "}
+                    {formatCurrency(item.commission)} per item
                   </p>
-                )}
+                </div>
                 <p
-                  className="text-xs"
-                  style={{ color: "var(--text-secondary)" }}
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  Shop {formatCurrency(item.shopPrice)} + runner fee{" "}
-                  {formatCurrency(item.commission)} per item
+                  {formatCurrency(item.unitPrice * item.quantity)}
                 </p>
               </div>
-              <p
-                className="font-medium"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {formatCurrency(item.unitPrice * item.quantity)}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Totals */}
@@ -581,17 +694,32 @@ export default function OrderTrackingPage() {
         )}
         {order.customerPaymentProofUrl && (
           <div className="mt-4">
-            <a href={order.customerPaymentProofUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border bg-white p-2">
-              <img src={order.customerPaymentProofUrl} alt="Customer proof of payment" className="max-h-80 w-full object-contain" />
-              <span className="mt-2 block text-center text-sm font-bold text-blue-700 underline">Open full payment proof</span>
+            <a
+              href={resolveMediaUrl(order.customerPaymentProofUrl)}
+              target="_blank"
+              rel="noreferrer"
+              className="block overflow-hidden rounded-lg border bg-white p-2"
+            >
+              <img
+                src={resolveMediaUrl(order.customerPaymentProofUrl)}
+                alt="Customer proof of payment"
+                className="max-h-80 w-full object-contain"
+              />
+              <span className="mt-2 block text-center text-sm font-bold text-blue-700 underline">
+                Open full payment proof
+              </span>
             </a>
           </div>
         )}
         {latestPayment?.createdAt && (
-          <p className="mt-3 text-xs">Submitted {new Date(latestPayment.createdAt).toLocaleString()}</p>
+          <p className="mt-3 text-xs">
+            Submitted {new Date(latestPayment.createdAt).toLocaleString()}
+          </p>
         )}
         {order.paymentVerifiedAt && (
-          <p className="mt-1 text-xs">Reviewed {new Date(order.paymentVerifiedAt).toLocaleString()}</p>
+          <p className="mt-1 text-xs">
+            Reviewed {new Date(order.paymentVerifiedAt).toLocaleString()}
+          </p>
         )}
       </div>
 
@@ -640,7 +768,11 @@ export default function OrderTrackingPage() {
                 size="sm"
                 themed
                 disabled={manualBusy === "customer" || !paymentCanBeReviewed}
-                title={!paymentCanBeReviewed ? "Customer must submit a payment reference or proof before verification." : "Confirm payment received"}
+                title={
+                  !paymentCanBeReviewed
+                    ? "Customer must submit a payment reference or proof before verification."
+                    : "Confirm payment received"
+                }
                 isLoading={manualBusy === "customer"}
                 onClick={() =>
                   updateManualTracking("customer", {
@@ -660,8 +792,14 @@ export default function OrderTrackingPage() {
                   size="sm"
                   variant="outline"
                   themed
-                  disabled={manualBusy === "customer-reject" || !paymentCanBeReviewed}
-                  title={!paymentCanBeReviewed ? "No reviewable payment proof has been submitted." : "Reject this payment submission"}
+                  disabled={
+                    manualBusy === "customer-reject" || !paymentCanBeReviewed
+                  }
+                  title={
+                    !paymentCanBeReviewed
+                      ? "No reviewable payment proof has been submitted."
+                      : "Reject this payment submission"
+                  }
                   onClick={() =>
                     updateManualTracking("customer-reject", {
                       customerPaymentStatus: "REJECTED",
@@ -676,7 +814,9 @@ export default function OrderTrackingPage() {
                   className="mt-3 ml-2"
                   size="sm"
                   variant="outline"
-                  disabled={manualBusy === "clearer-proof" || !paymentCanBeReviewed}
+                  disabled={
+                    manualBusy === "clearer-proof" || !paymentCanBeReviewed
+                  }
                   title="Reject this submission and ask for a clearer proof"
                   onClick={() =>
                     updateManualTracking("clearer-proof", {
@@ -744,8 +884,15 @@ export default function OrderTrackingPage() {
                 className="mt-3"
                 size="sm"
                 themed
-                disabled={manualBusy === "purchase" || order.customerPaymentStatus !== "PAID"}
-                title={order.customerPaymentStatus !== "PAID" ? "Payment must be confirmed before purchasing." : "Mark items bought"}
+                disabled={
+                  manualBusy === "purchase" ||
+                  order.customerPaymentStatus !== "PAID"
+                }
+                title={
+                  order.customerPaymentStatus !== "PAID"
+                    ? "Payment must be confirmed before purchasing."
+                    : "Mark items bought"
+                }
                 isLoading={manualBusy === "purchase"}
                 onClick={() =>
                   updateManualTracking("purchase", {
@@ -773,8 +920,25 @@ export default function OrderTrackingPage() {
                 <Button
                   size="sm"
                   themed
-                  disabled={manualBusy === "delivered" || !["READY_FOR_HANDOVER", "OUT_FOR_HANDOVER", "SHIPPED", "COMPLETED"].includes(order.status)}
-                  title={!['READY_FOR_HANDOVER', 'OUT_FOR_HANDOVER', 'SHIPPED', 'COMPLETED'].includes(order.status) ? "Order must be ready for handover first." : "Mark delivered"}
+                  disabled={
+                    manualBusy === "delivered" ||
+                    ![
+                      "READY_FOR_HANDOVER",
+                      "OUT_FOR_HANDOVER",
+                      "SHIPPED",
+                      "COMPLETED",
+                    ].includes(order.status)
+                  }
+                  title={
+                    ![
+                      "READY_FOR_HANDOVER",
+                      "OUT_FOR_HANDOVER",
+                      "SHIPPED",
+                      "COMPLETED",
+                    ].includes(order.status)
+                      ? "Order must be ready for handover first."
+                      : "Mark delivered"
+                  }
                   isLoading={manualBusy === "delivered"}
                   onClick={() =>
                     updateManualTracking("delivered", {
@@ -788,8 +952,23 @@ export default function OrderTrackingPage() {
                   size="sm"
                   variant="outline"
                   themed
-                  disabled={manualBusy === "collected" || !["READY_FOR_HANDOVER", "OUT_FOR_HANDOVER", "COMPLETED"].includes(order.status)}
-                  title={!['READY_FOR_HANDOVER', 'OUT_FOR_HANDOVER', 'COMPLETED'].includes(order.status) ? "Order must be ready for handover first." : "Mark collected"}
+                  disabled={
+                    manualBusy === "collected" ||
+                    ![
+                      "READY_FOR_HANDOVER",
+                      "OUT_FOR_HANDOVER",
+                      "COMPLETED",
+                    ].includes(order.status)
+                  }
+                  title={
+                    ![
+                      "READY_FOR_HANDOVER",
+                      "OUT_FOR_HANDOVER",
+                      "COMPLETED",
+                    ].includes(order.status)
+                      ? "Order must be ready for handover first."
+                      : "Mark collected"
+                  }
                   isLoading={manualBusy === "collected"}
                   onClick={() =>
                     updateManualTracking("collected", {
@@ -908,9 +1087,13 @@ export default function OrderTrackingPage() {
             Cancel Order
           </Button>
         )}
-        <Link href={user?.role === "RUNNER" ? "/runner/dashboard" : "/products"}>
+        <Link
+          href={user?.role === "RUNNER" ? "/runner/dashboard" : "/products"}
+        >
           <Button variant="outline" themed>
-            {user?.role === "RUNNER" ? "Back to Runner Dashboard" : "Continue Shopping"}
+            {user?.role === "RUNNER"
+              ? "Back to Runner Dashboard"
+              : "Continue Shopping"}
           </Button>
         </Link>
       </div>

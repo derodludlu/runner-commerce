@@ -17,12 +17,11 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/currency";
 import { getCartPricing, getItemPricing } from "@/lib/pricing";
 import { customersApi } from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { toast } from "sonner";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
 function mediaUrl(url: string) {
-  return url.startsWith("/uploads/") ? `${API_URL}${url}` : url;
+  return resolveMediaUrl(url);
 }
 
 export default function CartPage() {
@@ -40,13 +39,20 @@ export default function CartPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [hasRunnerPreference, setHasRunnerPreference] = useState<boolean | null>(null);
+  const [hasRunnerPreference, setHasRunnerPreference] = useState<
+    boolean | null
+  >(null);
 
   useEffect(() => {
     if (user?.role !== "CUSTOMER") return;
-    customersApi.getRunnerPreferences().then((response) => {
-      setHasRunnerPreference((response.data || []).some((item: any) => item.status !== "INACTIVE"));
-    }).catch(() => setHasRunnerPreference(false));
+    customersApi
+      .getRunnerPreferences()
+      .then((response) => {
+        setHasRunnerPreference(
+          (response.data || []).some((item: any) => item.status !== "INACTIVE"),
+        );
+      })
+      .catch(() => setHasRunnerPreference(false));
   }, [user]);
 
   const handleCheckout = async () => {

@@ -4,13 +4,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequiredRoles, isPublicRoute } from "@/lib/rbac";
 import type { UserRole } from "@/lib/rbac";
 
+const VALID_ROLES: UserRole[] = [
+  "ADMIN",
+  "CUSTOMER",
+  "RUNNER",
+  "SHOP_OWNER",
+  "WAREHOUSE",
+  "SUPERUSER",
+];
+
+function asUserRole(value: string | undefined): UserRole | null {
+  return VALID_ROLES.includes(value as UserRole) ? (value as UserRole) : null;
+}
+
 function decodeJWTRole(token: string): UserRole | null {
   try {
     const payloadB64 = token.split(".")[1];
     if (!payloadB64) return null;
-    const json = atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"));
+    const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "=",
+    );
+    const json = atob(padded);
     const payload = JSON.parse(json);
-    return (payload.role as UserRole) ?? null;
+    return asUserRole(payload.role);
   } catch {
     return null;
   }
@@ -30,7 +48,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const role: UserRole | null = decodeJWTRole(token);
+  const role =
+    decodeJWTRole(token) ?? asUserRole(request.cookies.get("user_role")?.value);
   const requiredRoles = getRequiredRoles(pathname);
 
   if (requiredRoles && requiredRoles.length > 0) {
