@@ -37,7 +37,9 @@ function decodeJWTRole(token: string): UserRole | null {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isPublicRoute(pathname)) return NextResponse.next();
+  if (pathname.startsWith("/api/") || isPublicRoute(pathname)) {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get("auth_token")?.value;
 
@@ -66,6 +68,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|icons/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|woff|woff2)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|icons/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|woff|woff2)$).*)",
   ],
 };
